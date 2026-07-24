@@ -1,0 +1,24 @@
+# 各リポジトリの .github/workflows/remove-in-progress-on-close.yml に配置する呼び出し元。
+name: Remove in-progress label on close
+
+on:
+  pull_request:
+    types: [closed]
+  issues:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to strip the in-progress label from
+        required: true
+        type: number
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  remove-label:
+    uses: keroway/.github/.github/workflows/reusable-remove-in-progress-on-close.yml@main
+    with:
+      issue_number: ${{ github.event_name == 'workflow_dispatch' && fromJSON(inputs.issue_number) || 0 }}

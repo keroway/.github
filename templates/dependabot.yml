@@ -1,0 +1,38 @@
+# keroway 標準 dependabot 設定テンプレート。
+# 適用時の注意:
+# - package-ecosystem はリポジトリの実態に合わせて増減する（cargo 等）
+# - リポジトリ固有の ignore（lockstep 依存や override 注記）は必ず保持すること
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      # マイナー / パッチはまとめて 1 PR にしてノイズを抑える。
+      # major は個別 PR で内容を確認して取り込む。
+      npm-minor-patch:
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    labels:
+      - dependencies
+    groups:
+      github-actions:
+        update-types:
+          - minor
+          - patch

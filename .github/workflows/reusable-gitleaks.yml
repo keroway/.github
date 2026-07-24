@@ -1,0 +1,31 @@
+# gitleaks による secret スキャンの reusable workflow。
+# 呼び出し元テンプレ: templates/workflow-gitleaks.yml
+#
+# GitHub の Secret Scanning と二重で回して検出力を上げる。
+# gitleaks/gitleaks-action は user-owned リポジトリでは license 不要、
+# organization 配下に移した場合のみ GITLEAKS_LICENSE secret が必要。
+name: reusable-gitleaks
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # 履歴全体をスキャンするため fetch-depth=0 にする。
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

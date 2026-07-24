@@ -1,0 +1,67 @@
+# Issue / PR クローズ時に in-progress ラベルを外す reusable workflow。
+# 呼び出し元テンプレ: templates/workflow-remove-in-progress-on-close.yml
+#
+# 呼び出し元で必要な permissions:
+#   issues: write
+#   pull-requests: read
+name: reusable-remove-in-progress-on-close
+
+on:
+  workflow_call:
+    inputs:
+      issue_number:
+        description: workflow_dispatch 経由で指定する Issue 番号（省略時はイベントから解決）
+        required: false
+        type: number
+        default: 0
+
+permissions:
+  issues: write
+  pull-requests: read
+
+jobs:
+  remove-label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          INPUT_ISSUE_NUMBER: ${{ inputs.issue_number }}
+        with:
+          script: |
+            const LABEL = "in-progress";
+            const { owner, repo } = context.repo;
+
+            const removeLabel = async (issueNumber) => {
+              try {
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: issueNumber, name: LABEL,
+                });
+              } catch (err) {
+                if (err.status === 404) return;
+                throw err;
+              }
+            };
+
+            const explicit = Number(process.env.INPUT_ISSUE_NUMBER);
+            if (Number.isFinite(explicit) && explicit > 0) {
+              await removeLabel(explicit);
+              return;
+            }
+
+            if (context.eventName === "issues") {
+              await removeLabel(context.issue.number);
+              return;
+            }
+
+            const pr = context.payload.pull_request;
+            if (!pr || !pr.merged) return;
+
+            const body = (pr.body || "")
+              .replace(/```[\s\S]*?```/g, "")
+              .replace(/`[^`\n]*`/g, "")
+              .replace(/^\s*>.*$/gm, "");
+            const re = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s*:?\s+#(\d+)\b/gi;
+            const numbers = new Set();
+            for (const m of body.matchAll(re)) numbers.add(Number(m[1]));
+            for (const n of numbers) await removeLabel(n);
