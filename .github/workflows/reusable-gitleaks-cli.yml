@@ -1,0 +1,50 @@
+# gitleaks CLI による secret スキャンの reusable workflow（ライセンス不要版）。
+# 呼び出し元テンプレ: templates/workflow-gitleaks-cli.yml
+#
+# gitleaks/gitleaks-action は organization 所有リポジトリでは GITLEAKS_LICENSE を要求する。
+# keroway-family は organization のため action 版が使えない。gitleaks 本体の CLI は
+# MIT ライセンスで制限がないので、リリース済みバイナリを直接叩く。
+# user 所有 (keroway) のリポジトリは PR コメントが付く reusable-gitleaks.yml を使う。
+
+name: reusable-gitleaks-cli
+
+on:
+  workflow_call:
+    inputs:
+      gitleaks-version:
+        description: 使用する gitleaks CLI のバージョン
+        type: string
+        default: "8.30.1"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # 履歴全体をスキャンするため fetch-depth=0 にする。
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install gitleaks
+        env:
+          VERSION: ${{ inputs.gitleaks-version }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
+          curl -sSfL "$url" -o /tmp/gitleaks.tar.gz
+          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
+          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
+          gitleaks version
+
+      - name: Run gitleaks
+        # --redact で検出値そのものはログに出さない。終了コード 1 = 検出あり。
+        run: gitleaks git --no-banner --redact --verbose --exit-code 1
