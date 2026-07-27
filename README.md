@@ -15,7 +15,8 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
 
 新規リポジトリ作成時・均質化作業時にコピーして使う標準設定:
 
-- `dependabot.yml` — weekly + minor/patch grouping。リポジトリ固有の ignore は必ず保持
+- `renovate.json5` — weekly + minor/patch grouping（npm / github-actions）。リポジトリ固有の
+  ignore・追加ルール（cargo 等）は必ず保持
 - `lefthook.yml` — pre-commit: biome check (staged) + typecheck、pre-push: test
 - `mise.toml` — Node 24 + pnpm 11 ピン（bun リポジトリは bun をピン）
 - `justfile` — 標準動詞 `build / test / lint / format / check` の薄い委譲
@@ -32,8 +33,11 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
 uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 ```
 
-追従は各リポジトリの dependabot（`package-ecosystem: github-actions`）に任せる。
-dependabot は SHA ピン + コメントの形式を認識して両方更新する。
+追従は各リポジトリの renovate（`matchManagers: ["github-actions"]`）に任せる。
+renovate は SHA ピン + コメントの形式を認識して両方更新する。
+
+（2026-07 に dependabot から renovate へ全リポジトリ移行済み。renovate の方が
+グルーピング・lockstep 依存の扱いで柔軟なため、こちらを標準とする。）
 
 現行の標準ピン（2026-07 時点）:
 
