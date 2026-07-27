@@ -27,6 +27,13 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
   を埋めて `.claude/hooks/` にコピーする。jq 非依存フォールバック・
   `stop_hook_active` によるループ防止・未 push 範囲の3段 degrade（`@{u}` →
   `origin/main..HEAD` → 空）は共通部分としてそのまま使う
+- `gitignore-claude.txt` — `.claude/` の allowlist 型 `.gitignore` テンプレート。
+  settings.json / agents / commands / rules / hooks / skills / claude-security-guidance.md /
+  README.md はチーム共有としてトラッキングし、settings.local.json / agent-memory / `.pi/` /
+  `.pi-subagents/` は ignore する。skills 配下でもう一段絞る必要があるリポジトリ
+  （自作 skill だけコミットし、ベンダリング物は除外する等）はテンプレートに手を加えた上で
+  理由をコメントで残す（`timeline-dsl-lp` が実例）。**`.claude/` を意図的に全除外している
+  リポジトリ（未共有の個人設定用途）には無理に適用しない**
 
 ## 規約
 
