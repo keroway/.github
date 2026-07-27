@@ -21,6 +21,11 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
 - `justfile` — 標準動詞 `build / test / lint / format / check` の薄い委譲
 - `biome.json` — lint/format 標準設定（recommended preset、double quote）
 - `.editorconfig` — 共通エディタ設定
+- `post-stop-check.sh` — Claude Code の Stop hook テンプレート。「リポジトリ固有」と
+  マークされた箇所（スキップ環境変数名、変更スコープの判定パターン、実行する検証コマンド）
+  を埋めて `.claude/hooks/` にコピーする。jq 非依存フォールバック・
+  `stop_hook_active` によるループ防止・未 push 範囲の3段 degrade（`@{u}` →
+  `origin/main..HEAD` → 空）は共通部分としてそのまま使う
 
 ## 規約
 
