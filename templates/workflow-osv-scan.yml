@@ -17,4 +17,4 @@ concurrency:
 
 jobs:
   scan:
-    uses: keroway/.github/.github/workflows/reusable-osv-scan.yml@main
+    uses: keroway/.github/.github/workflows/reusable-osv-scan.yml@main # zizmor: ignore[unpinned-uses] — 同一アカウント内の自前 reusable workflow。SHA ピン化は Phase 2 で検討

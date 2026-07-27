@@ -19,4 +19,4 @@ concurrency:
 
 jobs:
   lint:
-    uses: keroway/.github/.github/workflows/reusable-workflow-lint.yml@main
+    uses: keroway/.github/.github/workflows/reusable-workflow-lint.yml@main # zizmor: ignore[unpinned-uses] — 同一アカウント内の自前 reusable workflow。SHA ピン化は Phase 2 で検討
