@@ -1,0 +1,36 @@
+# osv-scanner による依存脆弱性の横断監査 reusable workflow。
+# 呼び出し元テンプレ: templates/workflow-osv-scan.yml
+#
+# cargo / npm / pnpm / bun のロックファイルをまとめて 1 ツールで監査できるため、
+# 個別の `cargo audit` / `pnpm audit` の代わりに（または併用で）使う。
+name: reusable-osv-scan
+
+on:
+  workflow_call:
+    inputs:
+      osv-scanner-version:
+        type: string
+        default: "2.4.0"
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: osv-scanner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install osv-scanner
+        env:
+          VERSION: ${{ inputs.osv-scanner-version }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/google/osv-scanner/releases/download/v${VERSION}/osv-scanner_linux_amd64"
+          curl -sSfL "$url" -o /tmp/osv-scanner
+          sudo install -m 0755 /tmp/osv-scanner /usr/local/bin/osv-scanner
+      - name: Run osv-scanner
+        run: osv-scanner scan source --recursive .
