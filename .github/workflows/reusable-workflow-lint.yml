@@ -129,7 +129,8 @@ jobs:
           set -euo pipefail
           url="https://github.com/crate-ci/typos/releases/download/v${VERSION}/typos-v${VERSION}-x86_64-unknown-linux-musl.tar.gz"
           curl -sSfL "$url" -o /tmp/typos.tar.gz
-          tar -xzf /tmp/typos.tar.gz -C /tmp typos
-          sudo install -m 0755 /tmp/typos /usr/local/bin/typos
+          mkdir -p /tmp/typos-extract
+          tar -xzf /tmp/typos.tar.gz -C /tmp/typos-extract ./typos
+          sudo install -m 0755 /tmp/typos-extract/typos /usr/local/bin/typos
       - name: Run typos
         run: typos
