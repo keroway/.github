@@ -1,0 +1,17 @@
+# settings.json / agents / commands / rules / hooks / skills はチーム共有する Claude Code 設定としてトラッキング。
+# settings.local.json / worktrees / lock ファイルなどのセッションローカルなものは ignore のまま。
+.claude/*
+!.claude/settings.json
+!.claude/agents/
+!.claude/commands/
+!.claude/rules/
+!.claude/hooks/
+!.claude/skills/
+!.claude/claude-security-guidance.md
+!.claude/README.md
+# Agent memory は各開発者のローカル観察ログ。共有しない。
+.claude/agent-memory/
+# pi coding agent はリポジトリ非共有（per-developer）
+.pi/
+.pi-subagents/
+.playwright-mcp/

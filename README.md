@@ -31,6 +31,13 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
   hook の発火条件と失敗時挙動（ブロックするか否か）・slash command・agent 役割分担・
   rules 参照階層・移植性を網羅する。`<...>` の箇所を実際のプロジェクトに合わせて埋める
   （`keroway/reflectorbit/.claude/README.md` が実例）
+- `gitignore-claude.txt` — `.claude/` の allowlist 型 `.gitignore` テンプレート。
+  settings.json / agents / commands / rules / hooks / skills / claude-security-guidance.md /
+  README.md はチーム共有としてトラッキングし、settings.local.json / agent-memory / `.pi/` /
+  `.pi-subagents/` は ignore する。skills 配下でもう一段絞る必要があるリポジトリ
+  （自作 skill だけコミットし、ベンダリング物は除外する等）はテンプレートに手を加えた上で
+  理由をコメントで残す（`timeline-dsl-lp` が実例）。**`.claude/` を意図的に全除外している
+  リポジトリ（未共有の個人設定用途）には無理に適用しない**
 
 ## 規約
 
