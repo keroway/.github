@@ -27,6 +27,10 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
   を埋めて `.claude/hooks/` にコピーする。jq 非依存フォールバック・
   `stop_hook_active` によるループ防止・未 push 範囲の3段 degrade（`@{u}` →
   `origin/main..HEAD` → 空）は共通部分としてそのまま使う
+- `claude-readme.md` — `.claude/README.md` のテンプレート。ディレクトリ構成図・依存ツール表・
+  hook の発火条件と失敗時挙動（ブロックするか否か）・slash command・agent 役割分担・
+  rules 参照階層・移植性を網羅する。`<...>` の箇所を実際のプロジェクトに合わせて埋める
+  （`keroway/reflectorbit/.claude/README.md` が実例）
 
 ## 規約
 
