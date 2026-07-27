@@ -7,16 +7,27 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
 | workflow | 用途 | 呼び出し元テンプレ |
 |---|---|---|
 | `reusable-remove-in-progress-on-close.yml` | Issue/PR クローズ時に `in-progress` ラベルを外す | `templates/workflow-remove-in-progress-on-close.yml` |
-| `reusable-gitleaks.yml` | gitleaks による secret スキャン | `templates/workflow-gitleaks.yml` |
+| `reusable-gitleaks.yml` | gitleaks による secret スキャン（user 所有リポジトリ向け、PR コメント付き） | `templates/workflow-gitleaks.yml` |
+| `reusable-gitleaks-cli.yml` | gitleaks CLI による secret スキャン（organization 所有リポジトリ向け、ライセンス不要） | `templates/workflow-gitleaks-cli.yml` |
+| `reusable-workflow-lint.yml` | actionlint / zizmor / shellcheck / typos の静的検査 | `templates/workflow-lint.yml` |
+| `reusable-osv-scan.yml` | osv-scanner による依存脆弱性の横断監査（cargo/npm/pnpm/bun 対応） | `templates/workflow-osv-scan.yml` |
 
 呼び出し元は `uses: keroway/.github/.github/workflows/<name>.yml@main` で参照する。
+
+**既知のトレードオフ**: 上記はいずれも同一アカウント内の自前 workflow のため、下記の
+サードパーティ Action SHA ピン規約とは別に `@main`（ブランチ参照、未ピン）で呼び出す。
+`keroway/.github` の `main` が侵害された場合の波及範囲は全リポジトリの CI に及ぶ。
+SHA ピン化すべきかは zizmor 導入時にあわせて判断する。
 
 ## テンプレート（`templates/`）
 
 新規リポジトリ作成時・均質化作業時にコピーして使う標準設定:
 
-- `renovate.json5` — weekly + minor/patch grouping（npm / github-actions）。リポジトリ固有の
-  ignore・追加ルール（cargo 等）は必ず保持
+- `renovate.json5` — `github>keroway/.github` の共有プリセット（`default.json5`）を
+  `extends` する薄い呼び出し元。リポジトリ固有の ignore・追加ルール（cargo 等）は
+  この呼び出し元側の `packageRules` に追記する（共有プリセット本体は変更しない）
+- `workflow-lint.yml` — actionlint / zizmor / shellcheck / typos の呼び出し元
+- `workflow-osv-scan.yml` — osv-scanner の呼び出し元（週次 + push）
 - `lefthook.yml` — pre-commit: biome check (staged) + typecheck、pre-push: test
 - `mise.toml` — Node 24 + pnpm 11 ピン（bun リポジトリは bun をピン）
 - `justfile` — 標準動詞 `build / test / lint / format / check` の薄い委譲
@@ -38,6 +49,32 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
   （自作 skill だけコミットし、ベンダリング物は除外する等）はテンプレートに手を加えた上で
   理由をコメントで残す（`timeline-dsl-lp` が実例）。**`.claude/` を意図的に全除外している
   リポジトリ（未共有の個人設定用途）には無理に適用しない**
+
+## Renovate 共有プリセット（`default.json5`）
+
+リポジトリ側の renovate 設定は次の形に縮める:
+
+```json5
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["github>keroway/.github"],
+  packageRules: [
+    // リポジトリ固有の追加ルールのみここに書く
+  ],
+}
+```
+
+`config:recommended` + `schedule:weekly` + `:semanticCommitTypeAll(chore)` と
+npm/github-actions の minor/patch グルーピングは `default.json5` 側が持つ。
+配置先は各リポジトリ `.github/renovate.json5` に統一する。
+
+## アカウント既定のコミュニティヘルスファイル
+
+`ISSUE_TEMPLATE/` / `PULL_REQUEST_TEMPLATE.md` / `SECURITY.md` をリポジトリ直下に
+一切持たないリポジトリに対する GitHub の既定フォールバックとして機能する
+（[Creating a default community health file](https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/creating-a-default-community-health-file)）。
+リポジトリ側に同種のファイルがあればそちらが優先されるため、リポジトリ固有の
+チェックリストやセキュリティポリシー（`code-tactics/SECURITY.md` 等）には影響しない。
 
 ## 規約
 

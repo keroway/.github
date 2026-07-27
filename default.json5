@@ -1,0 +1,29 @@
+// keroway 共有 Renovate プリセット。各リポジトリの renovate 設定から
+// `{ "extends": ["github>keroway/.github"] }` として参照する。
+// リポジトリ固有ルール（cargo グルーピング、lockstep 依存の束ね方等）は
+// 呼び出し元の renovate.json5 側に追記し、ここには置かない。
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: [
+    "config:recommended",
+    "schedule:weekly",
+    ":semanticCommitTypeAll(chore)",
+  ],
+  timezone: "Asia/Tokyo",
+  labels: ["dependencies"],
+  prConcurrentLimit: 5,
+  packageRules: [
+    {
+      description: "npm: マイナー / パッチはまとめて 1 PR にしてノイズを抑える（major は個別 PR）",
+      matchManagers: ["npm"],
+      matchUpdateTypes: ["minor", "patch"],
+      groupName: "npm-minor-patch",
+    },
+    {
+      description: "GitHub Actions: マイナー / パッチはまとめて 1 PR にしてノイズを抑える（major は個別 PR）",
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor", "patch"],
+      groupName: "github-actions",
+    },
+  ],
+}

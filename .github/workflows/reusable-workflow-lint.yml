@@ -1,0 +1,135 @@
+# workflow / シェルスクリプト / スペルの静的検査をまとめた reusable workflow。
+# 呼び出し元テンプレ: templates/workflow-lint.yml
+#
+# gitleaks-cli と同じ流儀（バージョンをピン留めして GitHub Release のバイナリを直接取得）。
+# 4項目は互いに独立なので個別ジョブにし、1つ落ちても他の結果が見える形にする。
+name: reusable-workflow-lint
+
+on:
+  workflow_call:
+    inputs:
+      actionlint-version:
+        type: string
+        default: "1.7.12"
+      shellcheck-version:
+        type: string
+        default: "0.11.0"
+      typos-version:
+        type: string
+        default: "1.48.0"
+      zizmor-version:
+        type: string
+        default: "1.28.0"
+      shell-paths:
+        description: shellcheck の対象パス（スペース区切りの glob）。空なら *.sh を全体から検索
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    name: actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install actionlint
+        env:
+          VERSION: ${{ inputs.actionlint-version }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
+          curl -sSfL "$url" -o /tmp/actionlint.tar.gz
+          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
+          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+      - name: Run actionlint
+        run: |
+          shopt -s globstar nullglob
+          files=(.github/workflows/**/*.yml .github/workflows/**/*.yaml)
+          [ "${#files[@]}" -eq 0 ] && { echo "workflow ファイルなし"; exit 0; }
+          actionlint "${files[@]}"
+
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install zizmor
+        env:
+          VERSION: ${{ inputs.zizmor-version }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/zizmorcore/zizmor/releases/download/v${VERSION}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
+          curl -sSfL "$url" -o /tmp/zizmor.tar.gz
+          tar -xzf /tmp/zizmor.tar.gz -C /tmp zizmor
+          sudo install -m 0755 /tmp/zizmor /usr/local/bin/zizmor
+      - name: Run zizmor
+        run: |
+          [ -d .github/workflows ] || { echo "workflow ディレクトリなし"; exit 0; }
+          zizmor --no-online-audits .github/workflows
+
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install shellcheck
+        env:
+          VERSION: ${{ inputs.shellcheck-version }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/koalaman/shellcheck/releases/download/v${VERSION}/shellcheck-v${VERSION}.linux.x86_64.tar.xz"
+          curl -sSfL "$url" -o /tmp/shellcheck.tar.xz
+          tar -xJf /tmp/shellcheck.tar.xz -C /tmp "shellcheck-v${VERSION}/shellcheck"
+          sudo install -m 0755 "/tmp/shellcheck-v${VERSION}/shellcheck" /usr/local/bin/shellcheck
+      - name: Run shellcheck
+        env:
+          SHELL_PATHS: ${{ inputs.shell-paths }}
+        run: |
+          set -euo pipefail
+          shopt -s globstar nullglob dotglob
+          if [ -n "$SHELL_PATHS" ]; then
+            # shellcheck disable=SC2206
+            files=($SHELL_PATHS)
+          else
+            files=(**/*.sh)
+            files=("${files[@]/#/}")
+            filtered=()
+            for f in "${files[@]}"; do
+              case "$f" in */node_modules/*|*/.git/*) continue ;; esac
+              filtered+=("$f")
+            done
+            files=("${filtered[@]}")
+          fi
+          [ "${#files[@]}" -eq 0 ] && { echo "対象 .sh なし"; exit 0; }
+          shellcheck "${files[@]}"
+
+  typos:
+    name: typos
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install typos
+        env:
+          VERSION: ${{ inputs.typos-version }}
+        run: |
+          set -euo pipefail
+          url="https://github.com/crate-ci/typos/releases/download/v${VERSION}/typos-v${VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          curl -sSfL "$url" -o /tmp/typos.tar.gz
+          tar -xzf /tmp/typos.tar.gz -C /tmp typos
+          sudo install -m 0755 /tmp/typos /usr/local/bin/typos
+      - name: Run typos
+        run: typos
