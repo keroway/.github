@@ -30,9 +30,12 @@ SHA ピン化すべきかは zizmor 導入時にあわせて判断する。
 - `workflow-osv-scan.yml` — osv-scanner の呼び出し元（週次 + push）
 - `lefthook.yml` — pre-commit: biome check (staged) + typecheck、pre-push: test
 - `mise.toml` — Node 24 + pnpm 11 ピン（bun リポジトリは bun をピン）。
-  CI（`jdx/mise-action`）だけでなくローカル開発の標準ツールでもある
+  **ローカル開発専用のツールチェーンピン**であり、CI はこれを読まない
   （volta は開発終了予定のため 2026-07-28 に mise へ移行済み、
-  https://github.com/volta-cli/volta/issues/2080）
+  https://github.com/volta-cli/volta/issues/2080）。CI 側は
+  `actions/setup-node` / `pnpm/action-setup` / `dtolnay/rust-toolchain` /
+  `oven-sh/setup-bun` で別系統にバージョンをピンしており、mise.toml とは
+  手動で同期する（`jdx/mise-action` は導入していない）
 - `justfile` — 標準動詞 `build / test / lint / format / check` の薄い委譲
 - `biome.json` — lint/format 標準設定（recommended preset、double quote）
 - `.editorconfig` — 共通エディタ設定
@@ -107,12 +110,12 @@ renovate は SHA ピン + コメントの形式を認識して両方更新する
 | pnpm/action-setup | v6.0.9 | `0ebf47130e4866e96fce0953f49152a61190b271` |
 | gitleaks/gitleaks-action | v3.0.0 | `e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e` |
 | oven-sh/setup-bun | v2.2.0 | `0c5077e51419868618aeaa5fe8019c62421857d6` |
-| jdx/mise-action | v4.2.1 | `dad1bfd3df957f44999b559dd69dc1671cb4e9ea` |
 
 ### ツールチェーン標準
 
 - **Lint/format**: Biome（`.astro` / `.md` 等 Biome 非対応部分のみ補助 Prettier）
 - **PM**: pnpm（例外: obsidian-clipper は bun）
-- **Node**: 24（mise でピン、CI の setup-node も 24）
+- **Node**: 24（ローカルは mise でピン、CI は `actions/setup-node` / `.nvmrc` でピン。
+  両者は mise を CI から参照する形ではなく手動同期）
 - **hooks**: lefthook
 - **タスクランナー**: justfile（標準動詞 `build / test / lint / format / check`）
