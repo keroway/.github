@@ -29,7 +29,7 @@ SHA ピン化すべきかは zizmor 導入時にあわせて判断する。
 - `workflow-lint.yml` — actionlint / zizmor / shellcheck / typos の呼び出し元
 - `workflow-osv-scan.yml` — osv-scanner の呼び出し元（週次 + push）
 - `lefthook.yml` — pre-commit: biome check (staged) + typecheck、pre-push: test
-- `mise.toml` — Node 24 + pnpm 11 ピン（bun リポジトリは bun をピン）。
+- `mise.toml` — Node 26 + pnpm 11 ピン（bun リポジトリは bun をピン）。
   **ローカル開発専用のツールチェーンピン**であり、CI はこれを読まない
   （volta は開発終了予定のため 2026-07-28 に mise へ移行済み、
   https://github.com/volta-cli/volta/issues/2080）。CI 側は
@@ -115,7 +115,7 @@ renovate は SHA ピン + コメントの形式を認識して両方更新する
 
 - **Lint/format**: Biome（`.astro` / `.md` 等 Biome 非対応部分のみ補助 Prettier）
 - **PM**: pnpm（例外: obsidian-clipper は bun）
-- **Node**: 24（ローカルは mise でピン、CI は `actions/setup-node` / `.nvmrc` でピン。
+- **Node**: 26（ローカルは mise でピン、CI は `actions/setup-node` / `.nvmrc` でピン。
   両者は mise を CI から参照する形ではなく手動同期）
 - **hooks**: lefthook
 - **タスクランナー**: justfile（標準動詞 `build / test / lint / format / check`）
