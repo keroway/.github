@@ -56,8 +56,15 @@ jobs:
           ALLOW_NO_SOURCES: ${{ inputs.allow-no-package-sources }}
         run: |
           set -uo pipefail
-          output="$(osv-scanner scan source --recursive . 2>&1)"
-          status=$?
+          # GitHub Actions の `run:` は bash を `-e` 付きで起動するため、単純な
+          # `output="$(cmd)"` だと非ゼロ終了した時点でこのステップが即終了し、
+          # 下の分岐に到達しない。`if` の条件部では `-e` が無効化されるので、
+          # この形で終了コードを捕捉する。
+          if output="$(osv-scanner scan source --recursive . 2>&1)"; then
+            status=0
+          else
+            status=$?
+          fi
           printf '%s\n' "$output"
 
           if [ "$status" -eq 0 ]; then
