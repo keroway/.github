@@ -11,6 +11,24 @@ on:
       osv-scanner-version:
         type: string
         default: "2.4.0"
+      allow-no-package-sources:
+        # 「スキャン対象が1つも無い」ことを成功として扱う。既定は false。
+        #
+        # osv-scanner が認識できないエコシステムだけで構成されたリポジトリ
+        # （Gleam/hex の beamsg、Formula だけの homebrew-tap 等）では
+        # `No package sources found` で必ず exit 128 になり、main の CI が
+        # 恒常的に赤くなる。常に赤いチェックはシグナルとして機能せず、
+        # 本物の脆弱性検出と区別できなくなるため、そうしたリポジトリだけが
+        # 明示的に opt-in してこの失敗だけを無害化する。
+        #
+        # 判定は「exit code 128」と「出力に No package sources found を含む」の
+        # 両方が揃った場合のみ。無条件に 128 を許容すると、本来スキャンできる
+        # リポジトリで対象を取りこぼした場合（lockfile のパス変更など）まで
+        # 静かに緑になってしまう。
+        #
+        # 設計判断の経緯は keroway/beamsg の docs/adr/0028-osv-scan-no-package-sources.md
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,4 +51,26 @@ jobs:
           curl -sSfL "$url" -o /tmp/osv-scanner
           sudo install -m 0755 /tmp/osv-scanner /usr/local/bin/osv-scanner
       - name: Run osv-scanner
-        run: osv-scanner scan source --recursive .
+        env:
+          # `run:` に式を直接埋め込まず環境変数で受ける（コマンドインジェクション回避）。
+          ALLOW_NO_SOURCES: ${{ inputs.allow-no-package-sources }}
+        run: |
+          set -uo pipefail
+          output="$(osv-scanner scan source --recursive . 2>&1)"
+          status=$?
+          printf '%s\n' "$output"
+
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+
+          # 「スキャン対象なし」だけを、opt-in したリポジトリに限り成功として扱う。
+          # exit code と出力メッセージの両方が一致した場合のみ。
+          if [ "$ALLOW_NO_SOURCES" = "true" ] &&
+            [ "$status" -eq 128 ] &&
+            printf '%s' "$output" | grep -q 'No package sources found'; then
+            echo "::notice::osv-scanner found no package sources. Treated as success because allow-no-package-sources=true."
+            exit 0
+          fi
+
+          exit "$status"
