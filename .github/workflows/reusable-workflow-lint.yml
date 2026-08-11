@@ -2,7 +2,8 @@
 # 呼び出し元テンプレ: templates/workflow-lint.yml
 #
 # gitleaks-cli と同じ流儀（バージョンをピン留めして GitHub Release のバイナリを直接取得）。
-# 4項目は互いに独立なので個別ジョブにし、1つ落ちても他の結果が見える形にする。
+# 4項目は1ジョブ内で実行する。各検査を継続して実行し、最後に集約して失敗させることで、
+# 1分未満の個別ジョブに発生する課金単位の重複を避けつつ診断結果を残す。
 name: reusable-workflow-lint
 
 on:
@@ -29,14 +30,15 @@ permissions:
   contents: read
 
 jobs:
-  actionlint:
-    name: actionlint
+  workflow-lint:
+    name: workflow-lint
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+
       - name: Install actionlint
         env:
           VERSION: ${{ inputs.actionlint-version }}
@@ -47,20 +49,15 @@ jobs:
           tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
           sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
       - name: Run actionlint
+        id: actionlint
+        continue-on-error: true
         run: |
           shopt -s globstar nullglob
           files=(.github/workflows/**/*.yml .github/workflows/**/*.yaml)
           [ "${#files[@]}" -eq 0 ] && { echo "workflow ファイルなし"; exit 0; }
           actionlint "${files[@]}"
 
-  zizmor:
-    name: zizmor
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+
       - name: Install zizmor
         env:
           VERSION: ${{ inputs.zizmor-version }}
@@ -71,18 +68,13 @@ jobs:
           tar -xzf /tmp/zizmor.tar.gz -C /tmp zizmor
           sudo install -m 0755 /tmp/zizmor /usr/local/bin/zizmor
       - name: Run zizmor
+        id: zizmor
+        continue-on-error: true
         run: |
           [ -d .github/workflows ] || { echo "workflow ディレクトリなし"; exit 0; }
           zizmor --no-online-audits .github/workflows
 
-  shellcheck:
-    name: shellcheck
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+
       - name: Install shellcheck
         env:
           VERSION: ${{ inputs.shellcheck-version }}
@@ -93,6 +85,8 @@ jobs:
           tar -xJf /tmp/shellcheck.tar.xz -C /tmp "shellcheck-v${VERSION}/shellcheck"
           sudo install -m 0755 "/tmp/shellcheck-v${VERSION}/shellcheck" /usr/local/bin/shellcheck
       - name: Run shellcheck
+        id: shellcheck
+        continue-on-error: true
         env:
           SHELL_PATHS: ${{ inputs.shell-paths }}
         run: |
@@ -114,14 +108,7 @@ jobs:
           [ "${#files[@]}" -eq 0 ] && { echo "対象 .sh なし"; exit 0; }
           shellcheck "${files[@]}"
 
-  typos:
-    name: typos
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
+
       - name: Install typos
         env:
           VERSION: ${{ inputs.typos-version }}
@@ -133,4 +120,26 @@ jobs:
           tar -xzf /tmp/typos.tar.gz -C /tmp/typos-extract ./typos
           sudo install -m 0755 /tmp/typos-extract/typos /usr/local/bin/typos
       - name: Run typos
+        id: typos
+        continue-on-error: true
         run: typos
+
+      - name: Fail if any lint check failed
+        if: always()
+        env:
+          ACTIONLINT_OUTCOME: ${{ steps.actionlint.outcome }}
+          ZIZMOR_OUTCOME: ${{ steps.zizmor.outcome }}
+          SHELLCHECK_OUTCOME: ${{ steps.shellcheck.outcome }}
+          TYPOS_OUTCOME: ${{ steps.typos.outcome }}
+        run: |
+          set -euo pipefail
+          failed=0
+          for check in actionlint zizmor shellcheck typos; do
+            outcome_var="${check^^}_OUTCOME"
+            outcome="${!outcome_var}"
+            if [ "$outcome" != "success" ]; then
+              echo "$check: $outcome"
+              failed=1
+            fi
+          done
+          exit "$failed"
