@@ -29,6 +29,16 @@ on:
         # 設計判断の経緯は keroway/beamsg の docs/adr/0028-osv-scan-no-package-sources.md
         type: boolean
         default: false
+      runs-on:
+        description: >
+          実行するランナーのラベル。**JSON 配列の文字列**で渡す
+          （workflow_call の input は配列を取れないため `fromJSON` で復元する）。
+          例: '["self-hosted","macOS","ARM64"]'。
+          private リポジトリの GitHub-hosted 実行は課金対象なので、
+          セルフホストランナーがあるリポジトリはそちらを指定する
+          （keroway/agent-assets#190）。
+        type: string
+        default: '["ubuntu-latest"]'
 
 permissions:
   contents: read
@@ -36,7 +46,7 @@ permissions:
 jobs:
   scan:
     name: osv-scanner
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -47,9 +57,22 @@ jobs:
           VERSION: ${{ inputs.osv-scanner-version }}
         run: |
           set -euo pipefail
-          url="https://github.com/google/osv-scanner/releases/download/v${VERSION}/osv-scanner_linux_amd64"
-          curl -sSfL "$url" -o /tmp/osv-scanner
-          sudo install -m 0755 /tmp/osv-scanner /usr/local/bin/osv-scanner
+          # 配布物は OS/arch ごとに別ファイル。**未知の環境では推測せず落とす**
+          # （間違った URL の 404 より「対応していない」と言う方が読み解ける）。
+          case "$(uname -s)/$(uname -m)" in
+            Linux/x86_64) asset="osv-scanner_linux_amd64" ;;
+            Darwin/arm64) asset="osv-scanner_darwin_arm64" ;;
+            *)
+              echo "::error::未対応の環境です: $(uname -s)/$(uname -m)"
+              exit 1
+              ;;
+          esac
+          # /usr/local/bin への sudo install はやめた。セルフホストランナーでは
+          # パスワード無し sudo を前提にできず、**マシンに副作用を残す**ため。
+          mkdir -p "$RUNNER_TEMP/osv-bin"
+          curl -sSfL "https://github.com/google/osv-scanner/releases/download/v${VERSION}/${asset}" -o "$RUNNER_TEMP/osv-bin/osv-scanner"
+          chmod 0755 "$RUNNER_TEMP/osv-bin/osv-scanner"
+          echo "$RUNNER_TEMP/osv-bin" >> "$GITHUB_PATH"
       - name: Run osv-scanner
         env:
           # `run:` に式を直接埋め込まず環境変数で受ける（コマンドインジェクション回避）。
