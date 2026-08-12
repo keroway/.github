@@ -15,6 +15,16 @@ on:
         description: 使用する gitleaks CLI のバージョン
         type: string
         default: "8.30.1"
+      runs-on:
+        description: >
+          実行するランナーのラベル。**JSON 配列の文字列**で渡す
+          （workflow_call の input は配列を取れないため `fromJSON` で復元する）。
+          例: '["self-hosted","macOS","ARM64"]'。
+          private リポジトリの GitHub-hosted 実行は課金対象なので、
+          セルフホストランナーがあるリポジトリはそちらを指定する
+          （keroway/agent-assets#190）。
+        type: string
+        default: '["ubuntu-latest"]'
 
 permissions:
   contents: read
@@ -22,7 +32,7 @@ permissions:
 jobs:
   scan:
     name: gitleaks
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 10
     permissions:
       contents: read
@@ -39,11 +49,24 @@ jobs:
           VERSION: ${{ inputs.gitleaks-version }}
         run: |
           set -euo pipefail
-          url="https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz"
-          curl -sSfL "$url" -o /tmp/gitleaks.tar.gz
-          tar -xzf /tmp/gitleaks.tar.gz -C /tmp gitleaks
-          sudo install -m 0755 /tmp/gitleaks /usr/local/bin/gitleaks
-          gitleaks version
+          # 配布物は OS/arch ごとに別ファイル。**未知の環境では推測せず落とす**
+          # （間違った URL の 404 より「対応していない」と言う方が読み解ける）。
+          case "$(uname -s)/$(uname -m)" in
+            Linux/x86_64) asset="gitleaks_${VERSION}_linux_x64.tar.gz" ;;
+            Darwin/arm64) asset="gitleaks_${VERSION}_darwin_arm64.tar.gz" ;;
+            *)
+              echo "::error::未対応の環境です: $(uname -s)/$(uname -m)"
+              exit 1
+              ;;
+          esac
+          # /usr/local/bin への sudo install はやめた。セルフホストランナーでは
+          # パスワード無し sudo を前提にできず、**マシンに副作用を残す**ため。
+          mkdir -p "$RUNNER_TEMP/gitleaks-bin"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/${asset}" -o "$RUNNER_TEMP/gitleaks.tar.gz"
+          tar -xzf "$RUNNER_TEMP/gitleaks.tar.gz" -C "$RUNNER_TEMP/gitleaks-bin" gitleaks
+          chmod 0755 "$RUNNER_TEMP/gitleaks-bin/gitleaks"
+          echo "$RUNNER_TEMP/gitleaks-bin" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/gitleaks-bin/gitleaks" version
 
       - name: Run gitleaks
         # --redact で検出値そのものはログに出さない。終了コード 1 = 検出あり。
