@@ -4,6 +4,44 @@ name: osv-scan
 on:
   push:
     branches: [main]
+    # 依存解決結果または OSV scanner の設定が変わった時だけ即時に走らせる。
+    # schedule は新規開示の脆弱性を検知するため常に維持する。
+    paths:
+      - ".github/workflows/osv-scan.yml"
+      - ".osv-scanner.toml"
+      - ".osv-scanner.yaml"
+      - ".osv-scanner.yml"
+      - "osv-scanner.toml"
+      - "osv-scanner.yaml"
+      - "osv-scanner.yml"
+      - "**/package.json"
+      - "**/package-lock.json"
+      - "**/npm-shrinkwrap.json"
+      - "**/pnpm-lock.yaml"
+      - "**/yarn.lock"
+      - "**/bun.lock"
+      - "**/bun.lockb"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - "**/go.mod"
+      - "**/go.sum"
+      - "**/requirements*.txt"
+      - "**/Pipfile"
+      - "**/Pipfile.lock"
+      - "**/poetry.lock"
+      - "**/pyproject.toml"
+      - "**/Gemfile"
+      - "**/Gemfile.lock"
+      - "**/composer.json"
+      - "**/composer.lock"
+      - "**/pom.xml"
+      - "**/build.gradle"
+      - "**/build.gradle.kts"
+      - "**/settings.gradle"
+      - "**/settings.gradle.kts"
+      - "**/gradle.lockfile"
+      - "**/*.csproj"
+      - "**/packages.lock.json"
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
