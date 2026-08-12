@@ -14,6 +14,15 @@ on:
         required: false
         type: number
         default: 0
+      runs-on:
+        description: >
+          実行するランナーのラベル。**JSON 配列の文字列**で渡す
+          （workflow_call の input は配列を取れないため `fromJSON` で復元する）。
+          例: '["self-hosted","macOS","ARM64"]'。
+          この workflow は actions/github-script（JS action）しか使わないため、
+          OS 依存の導入手順は無い（keroway/agent-assets#190）。
+        type: string
+        default: '["ubuntu-latest"]'
 
 permissions:
   issues: write
@@ -21,7 +30,7 @@ permissions:
 
 jobs:
   remove-label:
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 5
     steps:
       - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
