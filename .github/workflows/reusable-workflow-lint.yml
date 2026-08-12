@@ -25,6 +25,16 @@ on:
         description: shellcheck の対象パス（スペース区切りの glob）。空なら *.sh を全体から検索
         type: string
         default: ""
+      runs-on:
+        description: >
+          実行するランナーのラベル。**JSON 配列の文字列**で渡す
+          （workflow_call の input は配列を取れないため `fromJSON` で復元する）。
+          例: '["self-hosted","macOS","ARM64"]'。
+          private リポジトリの GitHub-hosted 実行は課金対象なので、
+          セルフホストランナーがあるリポジトリはそちらを指定する
+          （keroway/agent-assets#190）。
+        type: string
+        default: '["ubuntu-latest"]'
 
 permissions:
   contents: read
@@ -32,22 +42,48 @@ permissions:
 jobs:
   workflow-lint:
     name: workflow-lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
+      # ツールは $RUNNER_TEMP/lint-bin へ入れて PATH に載せる。
+      # /usr/local/bin への sudo install はやめた。セルフホストランナーでは
+      # パスワード無し sudo を前提にできず、**マシンに副作用を残す**ため
+      # （keroway/agent-assets#190）。
+      #
+      # 配布物名は 4 ツールとも命名規則が違うので個別に組み立てる。
+      # **未知の OS/arch では推測せず落とす** — 間違った URL は 404 になるが、
+      # 「なぜか入らない」より「対応していない」と言う方が読み解ける。
+      - name: Set up lint bin directory
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/lint-bin"
+          echo "$RUNNER_TEMP/lint-bin" >> "$GITHUB_PATH"
+          case "$(uname -s)/$(uname -m)" in
+            Linux/x86_64) ;;
+            Darwin/arm64) ;;
+            *)
+              echo "::error::未対応の環境です: $(uname -s)/$(uname -m)"
+              exit 1
+              ;;
+          esac
+
       - name: Install actionlint
         env:
           VERSION: ${{ inputs.actionlint-version }}
         run: |
           set -euo pipefail
-          url="https://github.com/rhysd/actionlint/releases/download/v${VERSION}/actionlint_${VERSION}_linux_amd64.tar.gz"
-          curl -sSfL "$url" -o /tmp/actionlint.tar.gz
-          tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint
-          sudo install -m 0755 /tmp/actionlint /usr/local/bin/actionlint
+          case "$(uname -s)/$(uname -m)" in
+            Linux/x86_64) asset="actionlint_${VERSION}_linux_amd64.tar.gz" ;;
+            Darwin/arm64) asset="actionlint_${VERSION}_darwin_arm64.tar.gz" ;;
+          esac
+          url="https://github.com/rhysd/actionlint/releases/download/v${VERSION}/${asset}"
+          curl -sSfL "$url" -o "$RUNNER_TEMP/actionlint.tar.gz"
+          tar -xzf "$RUNNER_TEMP/actionlint.tar.gz" -C "$RUNNER_TEMP/lint-bin" actionlint
+          chmod 0755 "$RUNNER_TEMP/lint-bin/actionlint"
       - name: Run actionlint
         id: actionlint
         continue-on-error: true
@@ -63,10 +99,14 @@ jobs:
           VERSION: ${{ inputs.zizmor-version }}
         run: |
           set -euo pipefail
-          url="https://github.com/zizmorcore/zizmor/releases/download/v${VERSION}/zizmor-x86_64-unknown-linux-gnu.tar.gz"
-          curl -sSfL "$url" -o /tmp/zizmor.tar.gz
-          tar -xzf /tmp/zizmor.tar.gz -C /tmp zizmor
-          sudo install -m 0755 /tmp/zizmor /usr/local/bin/zizmor
+          case "$(uname -s)/$(uname -m)" in
+            Linux/x86_64) asset="zizmor-x86_64-unknown-linux-gnu.tar.gz" ;;
+            Darwin/arm64) asset="zizmor-aarch64-apple-darwin.tar.gz" ;;
+          esac
+          url="https://github.com/zizmorcore/zizmor/releases/download/v${VERSION}/${asset}"
+          curl -sSfL "$url" -o "$RUNNER_TEMP/zizmor.tar.gz"
+          tar -xzf "$RUNNER_TEMP/zizmor.tar.gz" -C "$RUNNER_TEMP/lint-bin" zizmor
+          chmod 0755 "$RUNNER_TEMP/lint-bin/zizmor"
       - name: Run zizmor
         id: zizmor
         continue-on-error: true
@@ -80,10 +120,14 @@ jobs:
           VERSION: ${{ inputs.shellcheck-version }}
         run: |
           set -euo pipefail
-          url="https://github.com/koalaman/shellcheck/releases/download/v${VERSION}/shellcheck-v${VERSION}.linux.x86_64.tar.xz"
-          curl -sSfL "$url" -o /tmp/shellcheck.tar.xz
-          tar -xJf /tmp/shellcheck.tar.xz -C /tmp "shellcheck-v${VERSION}/shellcheck"
-          sudo install -m 0755 "/tmp/shellcheck-v${VERSION}/shellcheck" /usr/local/bin/shellcheck
+          case "$(uname -s)/$(uname -m)" in
+            Linux/x86_64) asset="shellcheck-v${VERSION}.linux.x86_64.tar.xz" ;;
+            Darwin/arm64) asset="shellcheck-v${VERSION}.darwin.aarch64.tar.xz" ;;
+          esac
+          url="https://github.com/koalaman/shellcheck/releases/download/v${VERSION}/${asset}"
+          curl -sSfL "$url" -o "$RUNNER_TEMP/shellcheck.tar.xz"
+          tar -xJf "$RUNNER_TEMP/shellcheck.tar.xz" -C "$RUNNER_TEMP" "shellcheck-v${VERSION}/shellcheck"
+          install -m 0755 "$RUNNER_TEMP/shellcheck-v${VERSION}/shellcheck" "$RUNNER_TEMP/lint-bin/shellcheck"
       - name: Run shellcheck
         id: shellcheck
         continue-on-error: true
@@ -114,11 +158,15 @@ jobs:
           VERSION: ${{ inputs.typos-version }}
         run: |
           set -euo pipefail
-          url="https://github.com/crate-ci/typos/releases/download/v${VERSION}/typos-v${VERSION}-x86_64-unknown-linux-musl.tar.gz"
-          curl -sSfL "$url" -o /tmp/typos.tar.gz
-          mkdir -p /tmp/typos-extract
-          tar -xzf /tmp/typos.tar.gz -C /tmp/typos-extract ./typos
-          sudo install -m 0755 /tmp/typos-extract/typos /usr/local/bin/typos
+          case "$(uname -s)/$(uname -m)" in
+            Linux/x86_64) asset="typos-v${VERSION}-x86_64-unknown-linux-musl.tar.gz" ;;
+            Darwin/arm64) asset="typos-v${VERSION}-aarch64-apple-darwin.tar.gz" ;;
+          esac
+          url="https://github.com/crate-ci/typos/releases/download/v${VERSION}/${asset}"
+          curl -sSfL "$url" -o "$RUNNER_TEMP/typos.tar.gz"
+          mkdir -p "$RUNNER_TEMP/typos-extract"
+          tar -xzf "$RUNNER_TEMP/typos.tar.gz" -C "$RUNNER_TEMP/typos-extract" ./typos
+          install -m 0755 "$RUNNER_TEMP/typos-extract/typos" "$RUNNER_TEMP/lint-bin/typos"
       - name: Run typos
         id: typos
         continue-on-error: true
