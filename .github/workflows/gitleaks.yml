@@ -1,9 +1,13 @@
 # このリポジトリ自身の secret スキャン（reusable workflow のセルフ利用）。
+#
+# main は branch protection で PR 必須化済み（plans/007 Phase 2、2026-08-21）。
+# PR の gitleaks チェックが必須状態で通っていることが default branch への
+# マージ条件になるため、push トリガーは pull_request と重複するだけで
+# 追加の検出価値が無い。週次の全履歴スキャンは新規開示された secret の
+# 検知用に維持する。
 name: secret-scan
 
 on:
-  push:
-    branches: [main]
   pull_request:
   schedule:
     - cron: "17 0 * * 1"
