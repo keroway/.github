@@ -11,6 +11,11 @@ on:
     paths:
       - ".github/workflows/**"
       - "**/*.sh"
+  # push / pull_request の paths は actionlint・zizmor・shellcheck 向けに絞ってあるため、
+  # typos がリポジトリ全体（docs/ や src/）を検査する機会が無い。週次で全ジョブを走らせて
+  # そこを埋める（keroway/.github#16）。分はリポジトリごとにずらして同時発火を避けること。
+  schedule:
+    - cron: "0 7 * * 1"
   workflow_dispatch:
 
 permissions:
