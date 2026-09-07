@@ -11,13 +11,17 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
 | `reusable-gitleaks-cli.yml` | gitleaks CLI による secret スキャン（organization 所有リポジトリ向け、ライセンス不要） | `templates/workflow-gitleaks-cli.yml` |
 | `reusable-workflow-lint.yml` | actionlint / zizmor / shellcheck / typos の静的検査 | `templates/workflow-lint.yml` |
 | `reusable-osv-scan.yml` | osv-scanner による依存脆弱性の横断監査（cargo/npm/pnpm/bun 対応） | `templates/workflow-osv-scan.yml` |
+| `reusable-ci-failure-issue.yml` | 監視対象workflowが失敗したら決定的にissueを起票/コメント追記（LLMポーリングの代替） | `templates/workflow-ci-failure-issue.yml` |
 
-呼び出し元は `uses: keroway/.github/.github/workflows/<name>.yml@main` で参照する。
+呼び出し元は `uses: keroway/.github/.github/workflows/<name>.yml@main` で参照する
+（テンプレート上の既定値。個々のリポジトリは keroway/.github#17 の方針でコミット SHA へ
+ピンし直すのが標準）。
 
-**既知のトレードオフ**: 上記はいずれも同一アカウント内の自前 workflow のため、下記の
-サードパーティ Action SHA ピン規約とは別に `@main`（ブランチ参照、未ピン）で呼び出す。
-`keroway/.github` の `main` が侵害された場合の波及範囲は全リポジトリの CI に及ぶ。
-SHA ピン化すべきかは zizmor 導入時にあわせて判断する。
+**既知のトレードオフ**: テンプレートの既定は `@main`（ブランチ参照、未ピン）だが、
+`keroway/.github` の `main` が侵害された場合の波及範囲が全リポジトリの CI に及ぶため、
+各リポジトリで `docs/reusable-workflow-sha-pinning.md` の手順に沿ってコミット SHA へ
+ピンする（keroway/.github#17）。新規リポジトリ作成時にテンプレをコピーした直後は
+`@main` のままなので、SHA ピン化を忘れないこと。
 
 ## テンプレート（`templates/`）
 
@@ -28,6 +32,8 @@ SHA ピン化すべきかは zizmor 導入時にあわせて判断する。
   この呼び出し元側の `packageRules` に追記する（共有プリセット本体は変更しない）
 - `workflow-lint.yml` — actionlint / zizmor / shellcheck / typos の呼び出し元
 - `workflow-osv-scan.yml` — osv-scanner の呼び出し元（週次 + push）
+- `workflow-ci-failure-issue.yml` — 監視対象workflow失敗時のissue起票/更新の呼び出し元。
+  `<対象workflow名>` を実際のCI workflow名に置き換えて使う
 - `lefthook.yml` — pre-commit: biome check (staged) + typecheck、pre-push: test
 - `mise.toml` — Node 26 + pnpm 11 ピン（bun リポジトリは bun をピン）。
   **ローカル開発専用のツールチェーンピン**であり、CI はこれを読まない

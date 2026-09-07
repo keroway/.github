@@ -1,0 +1,22 @@
+# 各リポジトリの .github/workflows/ci-failure-issue.yml に配置する呼び出し元。
+#
+# <対象workflow名> は監視対象のCI workflowの `name:` と完全一致させること
+# （workflow_run はworkflow名でマッチするため、ずれると一切発火しない）。
+# 複数workflowを監視したい場合は配列で列挙する。
+name: ci-failure-issue
+
+on:
+  workflow_run:
+    workflows: ["<対象workflow名>"]
+    types: [completed]
+
+permissions:
+  issues: write
+
+jobs:
+  file-or-update-issue:
+    if: github.event.workflow_run.conclusion == 'failure'
+    uses: keroway/.github/.github/workflows/reusable-ci-failure-issue.yml@main # zizmor: ignore[unpinned-uses] — 同一アカウント内の自前 reusable workflow。SHA ピン化は Phase 2 で検討
+    with:
+      # リポジトリ固有の補足が要る場合はここに追記する（トラブルシュート手順等）。
+      extra-body: ""
