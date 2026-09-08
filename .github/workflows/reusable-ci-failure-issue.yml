@@ -1,0 +1,88 @@
+# CI が失敗した run を検知して issue を起票/更新する reusable workflow。
+# 呼び出し元テンプレ: templates/workflow-ci-failure-issue.yml
+#
+# hero-fund の `statistical-equivalence.yml`（issue #111）で確立した
+# 「schedule失敗時のみ issue 起票、既存open issueがあればコメント追記」の型を
+# 一般化したもの。呼び出し元は `on: workflow_run` で対象workflowの完了を
+# トリガーにし、`if: github.event.workflow_run.conclusion == 'failure'` を
+# 付けたjobからこのworkflowを呼ぶ想定（keroway/.github#28）。
+#
+# 定時ジョブでLLMセッションを起動してCI失敗を読み直す運用（agent-assets の
+# ci-triage モード）を、この決定的な起票/更新に置き換える。
+#
+# 呼び出し元で必要な permissions:
+#   issues: write
+name: reusable-ci-failure-issue
+
+on:
+  workflow_call:
+    inputs:
+      label:
+        description: 起票/検索に使うラベル名。存在しなければ issue 作成時に自動生成される
+        type: string
+        default: "ci-failure"
+      extra-body:
+        description: issue本文に追記するリポジトリ固有の補足（トラブルシュート手順など）
+        type: string
+        default: ""
+      runs-on:
+        description: >
+          実行するランナーのラベル。**JSON 配列の文字列**で渡す
+          （workflow_call の input は配列を取れないため `fromJSON` で復元する）。
+          例: '["self-hosted","macOS","ARM64"]'。
+          この workflow は actions/github-script（JS action）しか使わないため、
+          OS 依存の導入手順は無い（keroway/agent-assets#190）。
+        type: string
+        default: '["ubuntu-latest"]'
+
+permissions:
+  issues: write
+
+jobs:
+  file-or-update-issue:
+    runs-on: ${{ fromJSON(inputs.runs-on) }}
+    timeout-minutes: 5
+    steps:
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          INPUT_LABEL: ${{ inputs.label }}
+          INPUT_EXTRA_BODY: ${{ inputs.extra-body }}
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            if (!run) {
+              core.setFailed("workflow_run イベント以外からの呼び出しには対応していない（context.payload.workflow_run が無い）");
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const label = process.env.INPUT_LABEL;
+            const extraBody = process.env.INPUT_EXTRA_BODY;
+
+            // run.name / run.head_branch は対象workflow・ブランチ名由来でおおむね信頼できるが、
+            // fork PRの場合ブランチ名は攻撃者が自由に設定できるため長さを切って安全側に倒す。
+            const truncate = (s, max) => (s.length > max ? `${s.slice(0, max)}…` : s);
+            const workflowName = truncate(run.name || "unknown workflow", 100);
+            const branch = truncate(run.head_branch || "unknown branch", 100);
+            const title = `${workflowName} が ${branch} で失敗`;
+            const runUrl = run.html_url;
+
+            let body = `CI workflow が失敗した。\n\n- 失敗した run: ${runUrl}\n- ブランチ: ${branch}\n- コミット: ${run.head_sha}`;
+            if (extraBody) body += `\n\n${extraBody}`;
+
+            const openIssues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: "open", labels: label, per_page: 100,
+            });
+            const existing = openIssues.find((issue) => issue.title === title);
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number, body,
+              });
+              core.info(`既存issue #${existing.number} にコメント追記した`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner, repo, title, body, labels: [label],
+              });
+              core.info(`issue #${created.data.number} を起票した`);
+            }
