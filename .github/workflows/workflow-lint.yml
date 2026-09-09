@@ -33,6 +33,9 @@ concurrency:
 
 jobs:
   lint:
-    uses: keroway/.github/.github/workflows/reusable-workflow-lint.yml@main # zizmor: ignore[unpinned-uses] — 同一リポジトリの自前 reusable workflow。SHA ピン化は Phase 2 で検討
+    # 同一リポジトリ内呼び出しなので相対パスで参照する。owner/repo@main 形式にすると
+    # main ブランチ上の（このPRでの reusable-workflow-lint.yml 変更を含まない）内容が
+    # 解決され、new input を渡した時点で startup_failure になる（keroway/.github#31）。
+    uses: ./.github/workflows/reusable-workflow-lint.yml
     with:
       extra-workflow-paths: "templates/workflow-*.yml"
