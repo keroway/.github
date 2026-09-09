@@ -1,0 +1,38 @@
+# keroway/.github 自身の lint ゲート。テンプレ配布元は templates/workflow-lint.yml だが、
+# こちらは呼び出し元がリポジトリ自身であるため個別に持つ（keroway/.github#31）。
+#
+# .github/workflows/ に加えて templates/workflow-*.yml も actionlint / zizmor の対象にする。
+# templates/workflow-ci-failure-issue.yml の `<対象workflow名>` のような未展開 placeholder は
+# 単なる文字列としてパースが通ることを確認済みで、意図的に検査対象へ含める
+# （無条件 skip で全検査を素通りさせない）。
+name: workflow-lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/**"
+      - "templates/workflow-*.yml"
+      - "templates/*.sh"
+  # pull_request は paths で絞らず全 PR で走らせる。将来この check を required にしたとき、
+  # 対象外パスの PR で「期待されているが待機中」のまま止まる paths-filter 特有の詰まりを
+  # 避けるため（keroway/.github#31）。1 ジョブ 5 分以内・4 ツールとも軽量なのでコストは小さい。
+  pull_request:
+  # typos はリポジトリ全体（README/templates/plans 等）を検査するため、push の paths 条件に
+  # 含まれない変更を週次で拾う（templates/workflow-lint.yml と同じ理由、keroway/.github#16）。
+  schedule:
+    - cron: "30 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    uses: keroway/.github/.github/workflows/reusable-workflow-lint.yml@main # zizmor: ignore[unpinned-uses] — 同一リポジトリの自前 reusable workflow。SHA ピン化は Phase 2 で検討
+    with:
+      extra-workflow-paths: "templates/workflow-*.yml"
