@@ -5,7 +5,7 @@
 default:
     @just --list
 
-check: lint-workflows lint-shell lint-typos
+check: lint-workflows lint-zizmor lint-shell lint-typos
 
 # actionlint: .github/workflows/ + templates/workflow-*.yml（未展開 placeholder を含めて検査する）
 lint-workflows:
@@ -15,6 +15,12 @@ lint-workflows:
     shopt -s nullglob
     files=(.github/workflows/*.yml templates/workflow-*.yml)
     actionlint "${files[@]}"
+
+lint-zizmor:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    command -v zizmor >/dev/null 2>&1 || { echo "zizmor が見つかりません（brew install zizmor）"; exit 1; }
+    zizmor --no-online-audits .github/workflows templates/workflow-*.yml
 
 lint-shell:
     #!/usr/bin/env bash

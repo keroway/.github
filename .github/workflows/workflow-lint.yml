@@ -36,6 +36,10 @@ jobs:
     # 同一リポジトリ内呼び出しなので相対パスで参照する。owner/repo@main 形式にすると
     # main ブランチ上の（このPRでの reusable-workflow-lint.yml 変更を含まない）内容が
     # 解決され、new input を渡した時点で startup_failure になる（keroway/.github#31）。
-    uses: ./.github/workflows/reusable-workflow-lint.yml
+    #
+    # zizmor は self-repository 構文（$/...）を推奨するが、actionlint 1.7.12（2026-09時点の
+    # 最新）はこの構文をまだ認識せず invalid format として弾く。actionlint が対応するまでは
+    # ./... のままにする（zizmor: ignore[self-repository] は下の uses: 行に付与）。
+    uses: ./.github/workflows/reusable-workflow-lint.yml # zizmor: ignore[self-repository] — actionlint 1.7.12が$/構文未対応（keroway/.github#31）
     with:
       extra-workflow-paths: "templates/workflow-*.yml"

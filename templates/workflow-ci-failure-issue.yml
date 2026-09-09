@@ -5,7 +5,10 @@
 # 複数workflowを監視したい場合は配列で列挙する。
 name: ci-failure-issue
 
-on:
+# workflow_run自体は一般に危険だが、呼び出し先 reusable-ci-failure-issue.yml は
+# PRコードのcheckoutもshell実行もせず、run.name/run.head_branchを切り詰めた上で
+# GitHub API（issues.create/createComment）の引数として渡すだけ（keroway/.github#31で監査済み）。
+on: # zizmor: ignore[dangerous-triggers] — 詳細は上のコメント参照
   workflow_run:
     workflows: ["<対象workflow名>"]
     types: [completed]
