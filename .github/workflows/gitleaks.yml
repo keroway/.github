@@ -23,4 +23,7 @@ concurrency:
 
 jobs:
   gitleaks:
-    uses: ./.github/workflows/reusable-gitleaks.yml
+    # zizmor は self-repository 構文（$/...）を推奨するが、actionlint 1.7.12（2026-09時点の
+    # 最新）はこの構文をまだ認識せず invalid format として弾く。actionlint が対応するまでは
+    # ./... のままにする（keroway/.github#31）。
+    uses: ./.github/workflows/reusable-gitleaks.yml # zizmor: ignore[self-repository] — actionlint 1.7.12が$/構文未対応（keroway/.github#31）

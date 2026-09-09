@@ -23,6 +23,15 @@ keroway の全リポジトリで共有する CI 基盤と標準テンプレー�
 ピンする（keroway/.github#17）。新規リポジトリ作成時にテンプレをコピーした直後は
 `@main` のままなので、SHA ピン化を忘れないこと。
 
+## このリポジトリ自身の検証
+
+共有 CI 基盤を配る側自身の構文・shell・綴りが未検査だと、他リポジトリへ壊れた設定を配ることになる。
+`.github/workflows/workflow-lint.yml` が `reusable-workflow-lint.yml` を自身に対して呼び、
+`.github/workflows/` に加えて `templates/workflow-*.yml`（`<対象workflow名>` のような
+未展開 placeholder を含むテンプレートも意図的に対象へ含める）と `templates/*.sh` を検査する
+（keroway/.github#31）。ローカルでは同じ4項目を `just check` で実行できる（`justfile` 参照）。
+リポジトリ固有ルールは [CLAUDE.md](./CLAUDE.md)（`AGENTS.md` はそこへの symlink）。
+
 ## テンプレート（`templates/`）
 
 新規リポジトリ作成時・均質化作業時にコピーして使う標準設定:

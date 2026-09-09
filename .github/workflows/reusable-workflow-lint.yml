@@ -25,6 +25,13 @@ on:
         description: shellcheck の対象パス（スペース区切りの glob）。空なら *.sh を全体から検索
         type: string
         default: ""
+      extra-workflow-paths:
+        description: >
+          actionlint / zizmor の対象に追加するパス（スペース区切りの glob）。
+          `.github/workflows/**` に加えて配布用テンプレート等（未展開 placeholder を含んでよい）
+          も検査したい呼び出し元向け。マッチしなければ無視する（keroway/.github#31）。
+        type: string
+        default: ""
       runs-on:
         description: >
           実行するランナーのラベル。**JSON 配列の文字列**で渡す
@@ -87,9 +94,16 @@ jobs:
       - name: Run actionlint
         id: actionlint
         continue-on-error: true
+        env:
+          EXTRA_WORKFLOW_PATHS: ${{ inputs.extra-workflow-paths }}
         run: |
           shopt -s globstar nullglob
           files=(.github/workflows/**/*.yml .github/workflows/**/*.yaml)
+          if [ -n "$EXTRA_WORKFLOW_PATHS" ]; then
+            # shellcheck disable=SC2206
+            extra=($EXTRA_WORKFLOW_PATHS)
+            files+=("${extra[@]}")
+          fi
           [ "${#files[@]}" -eq 0 ] && { echo "workflow ファイルなし"; exit 0; }
           actionlint "${files[@]}"
 
@@ -110,9 +124,19 @@ jobs:
       - name: Run zizmor
         id: zizmor
         continue-on-error: true
+        env:
+          EXTRA_WORKFLOW_PATHS: ${{ inputs.extra-workflow-paths }}
         run: |
-          [ -d .github/workflows ] || { echo "workflow ディレクトリなし"; exit 0; }
-          zizmor --no-online-audits .github/workflows
+          shopt -s nullglob
+          targets=()
+          [ -d .github/workflows ] && targets+=(.github/workflows)
+          if [ -n "$EXTRA_WORKFLOW_PATHS" ]; then
+            # shellcheck disable=SC2206
+            extra=($EXTRA_WORKFLOW_PATHS)
+            targets+=("${extra[@]}")
+          fi
+          [ "${#targets[@]}" -eq 0 ] && { echo "workflow ファイルなし"; exit 0; }
+          zizmor --no-online-audits "${targets[@]}"
 
 
       - name: Install shellcheck
